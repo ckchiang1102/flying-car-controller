@@ -7,6 +7,11 @@
 #include "Utility/StringUtils.h"
 #include "ControllerFactory.h"
 
+#include "QuadEstimatorEKF.h"
+#include "SimulatedGPS.h"
+#include "SimulatedIMU.h"
+#include "SimulatedMag.h"
+
 #ifdef _MSC_VER //  visual studio
 #pragma warning(disable: 4267 4244 4996)
 #endif
@@ -44,10 +49,6 @@ int QuadDynamics::Initialize()
 {
   if(!BaseDynamics::Initialize()) return 0;
 
-  _initialized = false;
-	
-  _vehicleType = VEHICLE_TYPE_QUAD;
-
   _lastTrajPointTime = 0;
   _trajLogStepTime = 0;
 
@@ -84,27 +85,27 @@ int QuadDynamics::Initialize()
   _trajLogStepTime = config->Get(_name + ".trajectoryLogStepTime", 0.f);
 
   _flightMode = config->Get(_name+".SimMode", "Full3D");
+	_useIdealEstimator = config->Get(_name + ".UseIdealEstimator", 1);
 
   ResetState(V3F());
 
-  V3F trajOffset = config->Get(_name + ".TrajectoryOffset", V3F());
-  float trajTimeOffset = config->Get(_name + ".TrajectoryTimeOffset", 0);
-
-  string controlConfig = config->Get(_name + ".ControlConfig", "ControlParams");
-  controller = CreateController(config->Get(_name + ".ControlType", "QuadControl") , controlConfig);
+	// CREATE CONTROLLER
+  controller = CreateController(_name,
+		config->Get(_name + ".ControlType", "QuadControl") , 
+		config->Get(_name + ".ControlConfig", "QuadControlParams"));
   if (controller)
   {
-    controller->SetTrajTimeOffset(trajTimeOffset);
-    controller->SetTrajectoryOffset(trajOffset);
-    if (config->Get(controlConfig + ".UseIdealEstimator", 0) == 1)
-    {
-      updateIdealStateCallback = MakeDelegate(controller.get(), &BaseController::OverrideEstimates);
-    }
+    controller->SetTrajTimeOffset(config->Get(_name + ".TrajectoryTimeOffset", 0));
+    controller->SetTrajectoryOffset(config->Get(_name + ".TrajectoryOffset", V3F()));
   }
   else
   {
     SLR_WARNING1("Failed to create controller for %s", _name.c_str());
   }
+
+	// CREATE ESTIMATOR
+  string estConfig = config->Get(_name + ".Estimator", "QuadEstimatorEKF");
+  estimator.reset(new QuadEstimatorEKF(estConfig, _name));
 
   _lastPosFollowErr = 0;
 
@@ -114,13 +115,30 @@ int QuadDynamics::Initialize()
     Quaternion<float>::FromEulerYPR(ypr.x, ypr.y, ypr.z),
     config->Get(_name + ".InitialOmega", V3F()));
 
-  _initialized = true;
+  // CREATE SENSORS
+  sensors.clear();
 
-  // Initialise the trajectory log
-  //string followedTrajFile = string("../config/") + config->Get("Sim.LoggedStateFile", "");
-  _followed_traj.reset(new Trajectory());
-  //followed_traj->SetLogFile(followedTrajFile);
-  followedTrajectoryCallback = MakeDelegate(_followed_traj.get(), &Trajectory::AddTrajectoryPoint);
+	string sensorString = config->Get(_name + ".Sensors", "");
+	vector<string> sensorList = SLR::Split(sensorString, ',');
+	for (unsigned int i = 0; i < sensorList.size(); i++)
+	{
+		string s = SLR::ToUpper(SLR::Trim(sensorList[i]));
+		if (s == "SIMGPS")
+		{
+			shared_ptr<SimulatedGPS> simGPS(new SimulatedGPS(config->Get(_name + ".SimGPSConfig", "SimGPS"), _name));
+			sensors.push_back(simGPS);
+		}
+		else if (s == "SIMIMU")
+		{
+			shared_ptr<SimulatedIMU> simIMU(new SimulatedIMU(config->Get(_name + ".SimIMUConfig", "SimIMU"), _name));
+			sensors.push_back(simIMU);
+		}
+		else if (s == "SIMMAG")
+		{
+			shared_ptr<SimulatedMag> simMag(new SimulatedMag(config->Get(_name + ".SimIMUConfig", "SimMag"), _name));
+			sensors.push_back(simMag);
+		}
+	}
 
   return 1;
 }
@@ -138,33 +156,27 @@ void QuadDynamics::Run(float dt, float simulationTime, int &idum, V3F externalFo
   {
     if(timeSinceLastControllerUpdate >= controllerUpdateInterval)
     {
-      // generate virtual gyro and accelerometer data
-			V3F newRawGyro = V3F(omega+sqrtf(gyroNoiseInt/dt)*V3F(gasdev(idum),gasdev(idum),gasdev(idum)));
-			const float c = expf(-dt/0.004f); // the real gyro filter has 250Hz bandwidth
-			_rawGyro = (1.f-c)*newRawGyro + c*_rawGyro;
+            for (auto i = sensors.begin(); i != sensors.end(); i++)
+      {
+        (*i)->Update(*this, estimator, controllerUpdateInterval, idum);
+      }
+			if (estimator)
+			{
+				estimator->UpdateTrueError(Position(), Velocity(), quat);
+			}
 
-			// ... accelerometer (no noise currently)
-      
-      V3F bodyAcc = quat.Rotate_ItoB(V3F(acc));
-			V3F rawAccel = V3F( bodyAcc);
-			rawAccel.constrain(-6.f*9.81f,6.f*9.81f);
-
-
-      // TODO: run callbacks to update sensors
-			// push this into the HAL to the simulated onboard controller
-			//_onboard.SetIMU_AG(rawAccel,_rawGyro);
-
-      //_onboard.SetRangeSensor(pos.z);
-      //V3F vel_body = quat.Rotate_ItoB(vel);
-      //_onboard.SetOpticalFlow(vel.x,vel.y); // todo - optical flow also sees rotation, and there's a scale thing here..
 
 			// This is the update of the onboard controller -- runs timeout logic, sensor filtering, estimation, 
 			// controller, and produces a new set of motor commands
-			//_onboard.RunEstimation();
-			if (updateIdealStateCallback) 
+			if (controller && _useIdealEstimator)
 			{
-				updateIdealStateCallback(Position(), Velocity(), quat, Omega());
+				controller->UpdateEstimates(Position(), Velocity(), quat, Omega());
 			}
+			else if(controller && estimator)
+			{
+				controller->UpdateEstimates(estimator->EstimatedPosition(), estimator->EstimatedVelocity(), estimator->EstimatedAttitude(), estimator->EstimatedOmega());
+			}
+
 			if (controller)
 			{
         curCmd = controller->RunControl(controllerUpdateInterval, simulationTime);
@@ -310,23 +322,12 @@ void QuadDynamics::Dynamics(float dt, float simTime, V3F external_force, V3F ext
 
   motorCmdsOld = motorCmdsN;
 
-  if (followedTrajectoryCallback)
+  if ((simTime - _lastTrajPointTime) > _trajLogStepTime)
   {
-    if ((simTime - _lastTrajPointTime) > _trajLogStepTime)
-    {
-      _lastTrajPointTime = simTime;
+    _lastTrajPointTime = simTime;
 
-      TrajectoryPoint traj_pt;
-      traj_pt.time = _lastTrajPointTime;
-      traj_pt.position = pos;
-      traj_pt.velocity = vel;
-      traj_pt.omega = omega;
-      traj_pt.attitude = quat;
-
-      followedTrajectoryCallback(traj_pt);
-    }
-
-    
+		_followedPos.push(pos);
+		_followedAtt.push(quat);
   }
 }
 
@@ -337,10 +338,10 @@ void QuadDynamics::RunRoomConstraints(const V3F& oldPos)
   // "(run up and down) the walls" instead of fly through them
 
   // "sticky floor" - if we're sitting on the floor, we shouldn't be drifting.
-  if(pos[2]>=bottom)
+  if(pos[2]>=zMax)
   {
     pos = oldPos;
-    pos[2] = bottom;
+    pos[2] = zMax;
     vel[0] = vel[1] = 0;
     vel[2] = MIN(0,vel[2]);
     omega = V3F();
@@ -356,7 +357,7 @@ void QuadDynamics::RunRoomConstraints(const V3F& oldPos)
     pos[1] = oldPos[1];
     vel[1] = 0.0;
   }
-  if((pos[2] > bottom) || (pos[2] < -top))
+  if((pos[2] > zMax) || (pos[2] < zMin))
   {
     pos[2] = oldPos[2];
     vel[2] = 0.0;
@@ -367,7 +368,6 @@ void QuadDynamics::SetCommands(const VehicleCommand& cmd)
 {
 	curCmd = cmd;
 }
-
 
 void QuadDynamics::TurnOffNonidealities()
 {
@@ -383,8 +383,8 @@ void QuadDynamics::TurnOffNonidealities()
 	//Meters error in CMToSpine
 	//Reload cx and cy because there has been added an error to them,
 	//see initialized in QuadDynamics::Initialize
-    cx = 0;
-    cy = 0;
+  cx = 0;
+  cy = 0;
 }
 
 bool QuadDynamics::GetData(const string& name, float& ret) const
@@ -405,11 +405,6 @@ bool QuadDynamics::GetData(const string& name, float& ret) const
     return BaseDynamics::GetData(name, ret);
   }
 
-  if (controller)
-  {
-    return controller->GetData(name, ret);
-  }
-
   return false;  
 }
 
@@ -421,11 +416,5 @@ vector<string> QuadDynamics::GetFields() const
   ret.push_back(_name + ".Thrust.C");
   ret.push_back(_name + ".Thrust.D");
   ret.push_back(_name + ".PosFollowErr");
-  
-  if (controller)
-  {
-    vector<string> controllerFields = controller->GetFields();
-    ret.insert(ret.end(), controllerFields.begin(), controllerFields.end());
-  }
   return ret;
 }

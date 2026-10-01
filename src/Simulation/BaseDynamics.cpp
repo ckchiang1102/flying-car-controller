@@ -3,6 +3,7 @@
 #include "Math/Random.h"
 #include "Utility/SimpleConfig.h"
 #include "Utility/StringUtils.h"
+#include "Trajectory.h"
 
 #ifdef _MSC_VER //  visual studio
 #pragma warning(disable: 4267 4244 4996)
@@ -11,9 +12,10 @@
 using namespace SLR;
 
 BaseDynamics::BaseDynamics(string name)
+	:_followedPos(MAX_TRAJECTORY_POINTS),
+	 _followedAtt(MAX_TRAJECTORY_POINTS)
 {
   _name = name;
-  _initialized = false;
   Initialize();
 }
 
@@ -21,17 +23,43 @@ int BaseDynamics::Initialize()
 {
   ParamsHandle config = SimpleConfig::GetInstance();
 
-  _initialized = false;
-
-  _vehicleType = -1; // see BaseDynamics.h for list of numbers
-
   // load in BaseDynamics-specific double-valued settings from the config in your inheritor
-  xMin = config->Get("Sim.xMin", -10.f);
-  yMin = config->Get("Sim.yMin", -10.f);;
-  xMax = config->Get("Sim.xMax", 10.f);
-  yMax = config->Get("Sim.yMax", 10.f);
-  bottom = config->Get("Sim.bottom", 0.f);
-  top = config->Get("Sim.top", 10.f);
+	vector<float> tmp;
+	if (config->GetFloatVector("Sim.xBounds",tmp))
+	{
+		xMin = tmp[0];
+		xMax = tmp[1];
+	}
+	else
+	{
+		xMin = -10;
+		xMax = 10;
+	}
+
+	if (config->GetFloatVector("Sim.yBounds", tmp))
+	{
+		yMin = tmp[0];
+		yMax = tmp[1];
+	}
+	else
+	{
+		yMin = -10;
+		yMax = 10;
+	}
+
+	if (config->GetFloatVector("Sim.zBounds", tmp))
+	{
+		zMin = tmp[0];
+		zMax = tmp[1];
+	}
+	else
+	{
+		zMin = -20;
+		zMax = 0;
+	}
+
+	_followedPos.reset();
+	_followedAtt.reset();
 
   return 1;
 }
@@ -42,18 +70,7 @@ void BaseDynamics::ResetState(V3F newPos, V3F newVel, Quaternion<float> newAtt, 
   pos = newPos;
   vel = newVel;
   quat = newAtt;
-
 }
-
-void BaseDynamics::SyncToVicon(GlobalPose gp)
-{
-  vel = V3F();
-  omega = V3F();
-  pos = gp.pos;
-  quat = gp.q;
-
-  printf("\nSIMULATOR_RESET ncommand received;  set sim pose = vicon, and sim vel = 0.\n");
- }
 
 GlobalPose BaseDynamics::GenerateGP(void)
 {
@@ -83,6 +100,9 @@ bool BaseDynamics::GetData(const string& name, float& ret) const
     GETTER_HELPER("OMEGA.X", omega.x);
     GETTER_HELPER("OMEGA.Y", omega.y);
     GETTER_HELPER("OMEGA.Z", omega.z);
+		GETTER_HELPER("ACC.X", acc.x);
+		GETTER_HELPER("ACC.Y", acc.y);
+		GETTER_HELPER("ACC.Z", acc.z);
 #undef GETTER_HELPER
   }
   return false;
@@ -103,5 +123,8 @@ vector<string> BaseDynamics::GetFields() const
   ret.push_back(_name + ".Omega.X");
   ret.push_back(_name + ".Omega.Y");
   ret.push_back(_name + ".Omega.Z");
+	ret.push_back(_name + ".Acc.X");
+	ret.push_back(_name + ".Acc.Y");
+	ret.push_back(_name + ".Acc.Z");
   return ret;
 }

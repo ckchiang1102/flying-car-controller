@@ -15,25 +15,18 @@ typedef shared_ptr<BaseController> ControllerHandle;
 class BaseController : public DataSource
 {
 public:
-  BaseController(string config);
+  BaseController(string name, string config);
   virtual ~BaseController() {};
 
-  virtual void RunEstimation() {};
   virtual VehicleCommand RunControl(float dt, float sim_time) { return VehicleCommand(); };
 
   virtual void Init();
   virtual void Reset();
 
-  void OnSensor_IMU(V3F accel, V3F gyros);
-  void OnSensor_OpticalFlow(float x, float y);
-  void OnSensor_Range(float z);
-  void OnSensor_GPS(V3D LLA); 
-  void OnSensor_Magnetometer(V3F);
-
   TrajectoryPoint GetNextTrajectoryPoint(float mission_time);
 
-  // Allows the simulator to provide perfect state data to the controller
-  void OverrideEstimates(V3F pos, V3F vel, Quaternion<float> attitude, V3F omega);
+  // update the vehicle state estimates the controller will use to do control
+  virtual void UpdateEstimates(V3F pos, V3F vel, Quaternion<float> attitude, V3F omega);
 
   // Access functions for graphing variables
   virtual bool GetData(const string& name, float& ret) const;
@@ -58,15 +51,10 @@ public:
   V3F estPos;
   V3F estOmega;
 
-  // measurements
-  float optFlowX, optFlowY;
-  V3F gyros;
-  V3F accels;
-  float range;
-
   Trajectory trajectory;
   TrajectoryPoint curTrajPoint;
   string _config;
+	string _name;
 
   V3F _trajectoryOffset;
   float _trajectoryTimeOffset;

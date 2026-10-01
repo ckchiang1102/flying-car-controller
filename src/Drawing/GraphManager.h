@@ -16,11 +16,19 @@ public:
   void UpdateData(double time);
   void DrawUpdate();
   
-  void AddGraph(string path);
+  void GraphCommand(string path);
   void InitPaint();
   void Paint();
 
   void RegisterDataSource(shared_ptr<DataSource> src);
+  template<typename T>
+  void RegisterDataSources(vector<shared_ptr<T> > srcs)
+  {
+    for (auto i = srcs.begin(); i != srcs.end(); i++)
+    {
+      RegisterDataSource(*i);
+    }
+  }
   
   shared_ptr<Graph> graph1, graph2;
   std::vector<shared_ptr<DataSource> > _sources;

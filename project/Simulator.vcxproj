@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\BaseController.cpp" />
+    <ClCompile Include="..\src\BaseQuadEstimator.cpp" />
     <ClCompile Include="..\src\Drawing\ColorUtils.cpp" />
     <ClCompile Include="..\src\Drawing\DrawingFuncs.cpp" />
     <ClCompile Include="..\src\Drawing\GLUTMenu.cpp" />
@@ -33,6 +34,7 @@
     <ClCompile Include="..\src\MavlinkNode\MavlinkTranslation.cpp" />
     <ClCompile Include="..\src\MavlinkNode\PracticalSocket.cpp" />
     <ClCompile Include="..\src\QuadControl.cpp" />
+    <ClCompile Include="..\src\QuadEstimatorEKF.cpp" />
     <ClCompile Include="..\src\Simulation\BaseDynamics.cpp" />
     <ClCompile Include="..\src\Simulation\QuadDynamics.cpp" />
     <ClCompile Include="..\src\Simulation\Simulator.cpp" />
@@ -42,7 +44,22 @@
     <ClCompile Include="..\src\Utility\Timer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\lib\matrix\AxisAngle.hpp" />
+    <ClInclude Include="..\lib\matrix\Dcm.hpp" />
+    <ClInclude Include="..\lib\matrix\Euler.hpp" />
+    <ClInclude Include="..\lib\matrix\filter.hpp" />
+    <ClInclude Include="..\lib\matrix\helper_functions.hpp" />
+    <ClInclude Include="..\lib\matrix\integration.hpp" />
+    <ClInclude Include="..\lib\matrix\math.hpp" />
+    <ClInclude Include="..\lib\matrix\Matrix.hpp" />
+    <ClInclude Include="..\lib\matrix\Quaternion.hpp" />
+    <ClInclude Include="..\lib\matrix\Scalar.hpp" />
+    <ClInclude Include="..\lib\matrix\SquareMatrix.hpp" />
+    <ClInclude Include="..\lib\matrix\Vector.hpp" />
+    <ClInclude Include="..\lib\matrix\Vector2.hpp" />
+    <ClInclude Include="..\lib\matrix\Vector3.hpp" />
     <ClInclude Include="..\src\BaseController.h" />
+    <ClInclude Include="..\src\BaseQuadEstimator.h" />
     <ClInclude Include="..\src\Common.h" />
     <ClInclude Include="..\src\DataSource.h" />
     <ClInclude Include="..\src\Drawing\AbsThreshold.h" />
@@ -51,7 +68,9 @@
     <ClInclude Include="..\src\Drawing\GLUTMenu.h" />
     <ClInclude Include="..\src\Drawing\Graph.h" />
     <ClInclude Include="..\src\Drawing\GraphManager.h" />
+    <ClInclude Include="..\src\Drawing\SigmaThreshold.h" />
     <ClInclude Include="..\src\Drawing\Visualizer_GLUT.h" />
+    <ClInclude Include="..\src\Drawing\WindowThreshold.h" />
     <ClInclude Include="..\src\Math\Angles.h" />
     <ClInclude Include="..\src\Math\Geometry.h" />
     <ClInclude Include="..\src\Math\Mat3x3F.h" />
@@ -66,8 +85,13 @@
     <ClInclude Include="..\src\MavlinkNode\UDPPacket.h" />
     <ClInclude Include="..\src\OnboardControls.h" />
     <ClInclude Include="..\src\QuadControl.h" />
+    <ClInclude Include="..\src\QuadEstimatorEKF.h" />
     <ClInclude Include="..\src\Simulation\BaseDynamics.h" />
     <ClInclude Include="..\src\Simulation\QuadDynamics.h" />
+    <ClInclude Include="..\src\Simulation\SimulatedGPS.h" />
+    <ClInclude Include="..\src\Simulation\SimulatedIMU.h" />
+    <ClInclude Include="..\src\Simulation\SimulatedMag.h" />
+    <ClInclude Include="..\src\Simulation\SimulatedQuadSensor.h" />
     <ClInclude Include="..\src\Simulation\Simulator.h" />
     <ClInclude Include="..\src\Trajectory.h" />
     <ClInclude Include="..\src\Types.h" />
@@ -79,19 +103,22 @@
     <ClInclude Include="..\src\VehicleDatatypes.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\config\1_Intro.txt" />
-    <Text Include="..\config\2_AttitudeControl.txt" />
-    <Text Include="..\config\3_PositionControl.txt" />
-    <Text Include="..\config\4_Nonidealities.txt" />
-    <Text Include="..\config\5_TrajectoryFollow.txt" />
+    <None Include="..\lib\matrix\LICENSE" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\config\06_SensorNoise.txt" />
+    <Text Include="..\config\07_AttitudeEstimation.txt" />
+    <Text Include="..\config\08_PredictState.txt" />
+    <Text Include="..\config\09_PredictionCovariance.txt" />
+    <Text Include="..\config\10_MagUpdate.txt" />
+    <Text Include="..\config\11_GPSUpdate.txt" />
     <Text Include="..\config\LastScenario.txt" />
     <Text Include="..\config\QuadControlParams.txt" />
+    <Text Include="..\config\QuadEstimatorEKF.txt" />
     <Text Include="..\config\QuadPhysicalParams.txt" />
     <Text Include="..\config\Scenarios.txt" />
+    <Text Include="..\config\SimulatedSensors.txt" />
     <Text Include="..\config\Simulation.txt" />
-    <Text Include="..\config\X_Scenarios.txt" />
-    <Text Include="..\config\X_TestManyQuads.txt" />
-    <Text Include="..\config\X_TestMavlink.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -183,9 +210,9 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>../lib/freeglut/include;../src;../lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);WIN32</PreprocessorDefinitions>
       <PrecompiledHeaderFile />
+      <AdditionalIncludeDirectories>../lib/freeglut/include;../src;../lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

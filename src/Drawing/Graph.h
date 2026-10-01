@@ -9,6 +9,8 @@ class QuadDynamics;
 class DataSource;
 class BaseAnalyzer;
 
+#define MAX_POINTS 10000
+
 class Graph
 {
 public:
@@ -19,21 +21,28 @@ public:
 
   void Draw();
   void AddItem(string path);
-  void AddSeries(string path, bool autoColor = true, V3F color = V3F());
+  void AddItem(string path, vector<string> options);
+  void AddSeries(string path, bool autoColor = true, V3F color = V3F(), vector<string> options=vector<string>());
   void AddAbsThreshold(string path);
   void AddWindowThreshold(string path);
+  void SetYAxis(string argsString);
+	void AddSigmaThreshold(string path);
   bool IsSeriesPlotted(string path);
   void RemoveAllElements();
+  void SetTitle(string title) { _title = title; }
+
+	void BeginLogToFile();
 
 
   struct Series
   {
     Series();
     V3F _color;
-    string _yName;
+    string _yName, _legend;
     string _objName, _fieldName;
     FixedQueue<float> x;
     FixedQueue<float> y;
+    bool noLegend, bold, negate;
     void Clear()
     {
       x.reset();
@@ -47,4 +56,9 @@ public:
   
   vector<Series> _series;
   string _name;
+
+	FILE* _logFile;
+
+  float _graphYLow, _graphYHigh;
+  string _title;
 };

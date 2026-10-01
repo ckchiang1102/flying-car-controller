@@ -51,14 +51,11 @@ public:
   void OnNewData(float time, float meas)
   {
     _lastTime = time;
-    if (_active)
-    {
-      return;
-    }
 
     if (_lastTimeAboveThresh == numeric_limits<float>::infinity())
     {
       _lastTimeAboveThresh = time;
+			_active = false;
     }
 
     if (fabs(meas) > _thresh)
@@ -101,6 +98,9 @@ public:
 
     if (_active)
     {
+			float tmp = 0;
+			glGetFloatv(GL_LINE_WIDTH, &tmp);
+			glLineWidth(2);
       glColor3f(0, 1, 0);
       glBegin(GL_LINE_STRIP);
       glVertex2f(_lastTimeAboveThresh, CONSTRAIN(_thresh,minY,maxY));
@@ -109,6 +109,7 @@ public:
       glVertex2f(_lastTimeAboveThresh, CONSTRAIN(-_thresh, minY, maxY));
       glVertex2f(_lastTimeAboveThresh, CONSTRAIN(_thresh, minY, maxY));
       glEnd();
+			glLineWidth(tmp);
     }
     else
     {

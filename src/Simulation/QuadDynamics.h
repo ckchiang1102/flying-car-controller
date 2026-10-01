@@ -6,11 +6,12 @@
 #include <matrix/math.hpp>
 #include "Math/LowPassFilter.h"
 #include "Drawing/ColorUtils.h"
-#include "Utility/FastDelegate.h"
-using namespace fastdelegate;
 
 class QuadDynamics;
 typedef shared_ptr<QuadDynamics> QuadcopterHandle;
+
+class BaseQuadEstimator;
+class SimulatedQuadSensor;
 
 class QuadDynamics : public BaseDynamics
 {
@@ -57,16 +58,15 @@ public:
   
 	VehicleCommand curCmd;
 
-	FastDelegate4<V3F, V3F, Quaternion<float>, V3F> updateIdealStateCallback;
-
-
-  FastDelegate1<TrajectoryPoint> followedTrajectoryCallback;
-
 	float GetArmLength() const { return L; }
 
   ControllerHandle controller;
+  shared_ptr<BaseQuadEstimator> estimator;
   
   friend class Visualizer_GLUT;
+
+  // sensors
+  vector<shared_ptr<SimulatedQuadSensor> > sensors;
 
 protected:
   matrix::Vector<float, 4> motorCmdsN;
@@ -93,9 +93,10 @@ protected:
 
   double controllerUpdateInterval, timeSinceLastControllerUpdate;
 
-	V3F _rawGyro;
   float _lastPosFollowErr;
 
   V3F color;  
   string _flightMode;
+	bool _useIdealEstimator; 
+
 };
