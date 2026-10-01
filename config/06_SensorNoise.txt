@@ -1,9 +1,7 @@
-### STUDENT SECTION
 
 MeasuredStdDev_GPSPosXY = 0.7252
 MeasuredStdDev_AccelXY = 0.5118
 
-### END STUDENT SECTION
 
 INCLUDE Simulation.txt
 INCLUDE QuadPhysicalParams.txt
