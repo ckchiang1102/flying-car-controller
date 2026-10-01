@@ -4,8 +4,7 @@
 #include "Math/Quaternion.h"
 #include "VehicleDatatypes.h"
 #include "DataSource.h"
-
-#define VEHICLE_TYPE_QUAD              0
+#include "Utility/FixedQueue.h"
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -32,10 +31,10 @@ public:
 
 	// inheritors have no reason to alter the following functions and therefore no sense demanding that they do
 	GlobalPose     GenerateGP () ; // returns the current simulation state in Vicon format - const?
-  void SyncToVicon(GlobalPose gp); // sets simulation to zero velocities and vicon-based poses.
 
   V3F Position() const { return pos; };
   V3F Velocity() const { return vel; };
+  V3F Acceleration() const { return acc; };
   V3F Omega() const { return omega; };
   Quaternion<float> Attitude() const { return quat; }
 
@@ -47,19 +46,16 @@ public:
   virtual bool GetData(const string& name, float& ret) const;
   virtual vector<string> GetFields() const;  
 
-  int GetVehicleType(void) {return _vehicleType;};
-
 	virtual double GetRotDistInt() { return 0;};
 	virtual double GetXyzDistInt() {return 0;};
 	virtual double GetRotDistBW() {return 0;};
 	virtual double GetXyzDistBW() {return 0;};
 	virtual double GetGyroNoiseInt() {return 0;};
 
-  bool Initialized() const {return _initialized;}
-
   void ResetState(V3F pos=V3F(), V3F vel=V3F(), Quaternion<float> att=Quaternion<float>(), V3F omega=V3F());
 
-  shared_ptr<Trajectory> _followed_traj;
+	FixedQueue<V3F> _followedPos;
+	FixedQueue<Quaternion<float>> _followedAtt;
 
 protected:
   string _name;
@@ -68,13 +64,10 @@ protected:
 	V3F  pos, vel, acc, omega, old_omega; 
   Quaternion<float>  quat;
 
-  int _vehicleType;
-
   // vehicle geometry and mass properties
   float M; // veh mass, kg
   float Ixx,Iyy,Izz;
-  float xMin,yMin,bottom,xMax,yMax,top;
-  bool _initialized;
+  float xMin,yMin,zMin,xMax,yMax,zMax;
 
   float _lastTrajPointTime;
   float _trajLogStepTime;

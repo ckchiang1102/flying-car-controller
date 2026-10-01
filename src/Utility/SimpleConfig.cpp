@@ -135,14 +135,35 @@ void SimpleConfig::ParseLine(const string& filename, const string& line, int lin
     return;
   }
 
+  bool addCmd = false;
+  if (leftPart[leftPart.size() - 1] == '+')
+  {
+    addCmd = true;
+    leftPart = Trim(leftPart.substr(0, leftPart.size() - 1));
+  }
+
+  string paramName=leftPart;
   if (curNamespace != "")
   {
-    _params[curNamespace + "." + leftPart] = rightPart;
+    paramName = curNamespace + "." + leftPart;
   }
-  else
+
+  if (addCmd)
   {
-    _params[leftPart] = rightPart;
+    // find highest integer X such that paramName.X exists
+    string s = paramName + ".1";
+    int i = 1;
+    while (_params.find(s) != _params.end())
+    {
+      char buf[10];
+      i++;
+      sprintf_s(buf, 10, ".%d", i);
+      s = paramName + buf;
+    }
+    paramName = s;
   }
+
+  _params[paramName] = rightPart;
 }
 
 void SimpleConfig::CopyNamespaceParams(const string& fromNamespace, const string& toNamespace)
@@ -152,11 +173,15 @@ void SimpleConfig::CopyNamespaceParams(const string& fromNamespace, const string
   map<string, string> pCopy = _params;
   for (map<string,string>::iterator i = pCopy.begin(); i != pCopy.end(); i++)
   {
-    if (i->first.compare(0, searchString.length(), searchString) == 0)
-    {
-      string tmp = i->first.substr(searchString.size());
-      tmp = toNamespace + "." + tmp;
-      _params[tmp] = i->second;
+		if (i->first.compare(0, searchString.length(), searchString) == 0)
+		{
+			string tmp = i->first.substr(searchString.size());
+			tmp = toNamespace + "." + tmp;
+			// only copy over parameters that don't already exist
+			if (_params.find(tmp) == _params.end())
+			{
+				_params[tmp] = i->second;
+			}
     }
 
   }
@@ -228,7 +253,7 @@ bool SimpleConfig::GetFloatVector(const string& param, vector<float>& ret)
   string s = i->second;
   vector<string> spl = SLR::Split(s, ',');
   ret.clear();
-  for (unsigned i = 0; i < s.size(); i++)
+  for (unsigned i = 0; i < spl.size(); i++)
   {
     try
     {
@@ -242,7 +267,6 @@ bool SimpleConfig::GetFloatVector(const string& param, vector<float>& ret)
   }
   return true;
 }
-
 
 float SimpleConfig::Get(const string& param, float defaultRet)
 {

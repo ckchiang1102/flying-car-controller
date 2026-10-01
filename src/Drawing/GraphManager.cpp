@@ -47,7 +47,7 @@ GraphManager::GraphManager(bool own_window)
   }
 
   graph1.reset(new Graph("Graph1"));
-  graph2.reset(new Graph("Graph1"));
+  graph2.reset(new Graph("Graph2"));
 }
 
 GraphManager::~GraphManager()
@@ -79,6 +79,11 @@ void GraphManager::UpdateData(double time)
   if (graph2)
   {
     graph2->Update(time, _sources);
+  }
+
+  for (auto i = _sources.begin(); i != _sources.end(); i++)
+  {
+    (*i)->FinalizeDataFrame();
   }
 }
 
@@ -179,21 +184,46 @@ vector<string> GraphManager::GetGraphableStrings()
     vector<string> s = (*i)->GetFields();
     for (auto j = s.begin(); j != s.end(); j++)
     {
-      ret.push_back("AddGraph1."+*j);
+      ret.push_back("AddGraph1." + *j);
       ret.push_back("AddGraph2." + *j);
     }
   }
   return ret;
 }
 
-void GraphManager::AddGraph(string path)
+void GraphManager::GraphCommand(string cmd)
 {
-  if (path.find("AddGraph1.") == 0)
+  // old-style commands
+  if (cmd.find("AddGraph1.") == 0)
   {
-    graph1->AddItem(path.substr(10));
+    graph1->AddItem(cmd.substr(10));
+    return;
   }
-  if (path.find("AddGraph2.") == 0)
+  else if (cmd.find("AddGraph2.") == 0)
   {
-    graph2->AddItem(path.substr(10));
+    graph2->AddItem(cmd.substr(10));
+    return;
   }
+
+  vector<string> s = SimpleFunctionParser(cmd);
+
+  if (s.size() == 3 && s[0] == "SetTitle")
+  {
+    int graphNum = atoi(s[1].c_str());
+    shared_ptr<Graph> g = (graphNum == 1) ? graph1 : graph2;
+    g->SetTitle(SLR::UnQuote(s[2]));
+  }
+  else if (s.size() >= 3 && s[0] == "Plot")
+  {
+    int graphNum = atoi(s[1].c_str());
+    shared_ptr<Graph> g = (graphNum == 1) ? graph1 : graph2;
+    vector<string> args(s.begin() + 2, s.end());
+    g->AddSeries(s[2], true, V3F(), args);
+  }
+  else
+  {
+    printf("Broken graphing command: [%s]\n", cmd.c_str());
+  }
+
+  
 }

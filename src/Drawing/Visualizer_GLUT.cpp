@@ -11,6 +11,7 @@
 #include "Simulation/QuadDynamics.h"
 #include "Drawing/ColorUtils.h"
 #include "GraphManager.h"
+#include "Utility/SimpleConfig.h"
 
 #ifndef __APPLE__
 #include <GL/gl.h>
@@ -76,8 +77,8 @@ void _g_OnExit()
   exit(0);
 }
 
-bool _g_keySpecialStates[246];
-bool _g_keyStates[256];
+bool _g_keySpecialStates[246] = { 0 };
+bool _g_keyStates[256] = { 0 };
 
 void _g_OnKeyPressed(unsigned char key, int x, int y) {
   _g_keyStates[key] = true; // Set the state of the current key to pressed  
@@ -104,6 +105,7 @@ Visualizer_GLUT::Visualizer_GLUT(int *argcp, char **argv)
 	glQuadric = gluNewQuadric();
 
 	_volumeCallList = 0;
+  _lastSimTime = 0;
 
 	_cameraTrackingMode = "Independent";
 	
@@ -169,8 +171,9 @@ void Visualizer_GLUT::Reset()
 	}
 }
 
-void Visualizer_GLUT::Update()
+void Visualizer_GLUT::Update(float simTime)
 {
+  _lastSimTime = simTime;
   glutPostWindowRedisplay(_glutWindowNum);
   if (_exiting) return;
 }
@@ -332,9 +335,48 @@ void Visualizer_GLUT::DrawTrajectories(shared_ptr<QuadDynamics> quad)
     }
   }
 
-  if (quad && quad->_followed_traj  && showActualTrajectory)
+  if (quad && showActualTrajectory)
   {
-    VisualizeTrajectory(*(quad->_followed_traj).get(), false, quad->color, 1.f, V3F(), V3F(), V3F(), 1);
+		V3F offset = V3F();
+
+		_glDraw->SetLighting(false);
+		glEnable(GL_LINE_SMOOTH);
+		glLineWidth(1);
+		glColor4d(quad->color[0], quad->color[1], quad->color[2], 1);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glDisable(GL_CULL_FACE);
+		glBegin(GL_QUADS);
+		for (unsigned int i = 1; i < quad->_followedPos.n_meas(); i++)
+		{
+			V3F p = (quad->_followedPos[i] + offset);
+			V3F l = quad->_followedAtt[i].Rotate_BtoI(V3F(0, 1, 0)) * 0.1f;
+			glVertex3fv((p + l).getArray());
+			glVertex3fv((p - l).getArray());
+
+			p = (quad->_followedPos[i-1] + offset);
+			l = quad->_followedAtt[i-1].Rotate_BtoI(V3F(0, 1, 0)) * 0.1f;
+			glVertex3fv((p - l).getArray());
+			glVertex3fv((p + l).getArray());
+		}
+		glEnd();
+
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		
+		glColor4d(quad->color[0], quad->color[1], quad->color[2], .1);
+		glBegin(GL_QUADS);
+		for (unsigned int i = 1; i < quad->_followedPos.n_meas(); i++)
+		{
+			V3F p = (quad->_followedPos[i] + offset);
+			V3F l = quad->_followedAtt[i-1].Rotate_BtoI(V3F(0, 1, 0)) * 0.1f;
+			glVertex3fv((p + l).getArray());
+			glVertex3fv((p - l).getArray());
+
+			p = (quad->_followedPos[i-1] + offset);
+			l = quad->_followedAtt[i - 1].Rotate_BtoI(V3F(0, 1, 0)) * 0.1f;
+			glVertex3fv((p - l).getArray());
+			glVertex3fv((p + l).getArray());
+		}
+		glEnd();
   }
 }
 
@@ -406,9 +448,7 @@ void Visualizer_GLUT::Paint()
 	glGetDoublev(GL_PROJECTION_MATRIX,projMatrix);
 	glGetIntegerv(GL_VIEWPORT,viewport);
 
-  SetupLights(_glDraw);
-
-  
+  SetupLights(_glDraw);  
 
 	// enable color tracking
 	glEnable(GL_COLOR_MATERIAL);
@@ -446,6 +486,8 @@ void Visualizer_GLUT::Paint()
   glPopMatrix();
   glMatrixMode(GL_MODELVIEW);
 
+  DrawBottomStatus(_lastSimTime);
+
   // Draw graph if there is a graph
   if (graph)
   {
@@ -458,15 +500,6 @@ void Visualizer_GLUT::Paint()
 
     glPopMatrix();
   }
-
-  // Display the "paused" text if necessary
-  if (paused)
-  {
-    glColor3f(1,0,0);
-    DrawStrokeText("Paused", -1+0.1f, 1-0.2f, 0, 3.f);
-  }
-
-  //glutSwapBuffers();
   
   _last_draw_time_ms = (float)t.Seconds()*1000.f;
 
@@ -475,6 +508,23 @@ void Visualizer_GLUT::Paint()
     LoadScenario(_delayedScenarioLoader);
     _delayedScenarioLoader = "";
   }
+}
+
+void Visualizer_GLUT::OnLoadScenario(string scenario)
+{
+  _scenarioName = SLR::RightOfLast(scenario, '/').c_str();
+  _scenarioName = SLR::LeftOf(_scenarioName, '.');
+  Reset();
+}
+
+void Visualizer_GLUT::DrawBottomStatus(float simTime)
+{
+  char buf[100];
+
+  sprintf_s(buf, 100, "%s t=%.3f%s", _scenarioName.c_str(), simTime, paused?" Paused":"");
+  
+  glColor3f(0, 0, 1);
+  DrawStrokeText(buf, -1 + 0.025f, -0.975f, 0, 1.5, .5f, .5f);
 }
 
 void Visualizer_GLUT::VisualizeQuadCopter(shared_ptr<QuadDynamics> quad)
@@ -509,7 +559,7 @@ void Visualizer_GLUT::VisualizeTrajectory(const Trajectory& traj, bool drawPoint
     glLineWidth(1.5);
     glColor4d(color[0], color[1], color[2], alpha);
     glBegin(GL_LINE_STRIP);
-    for (unsigned int i = 0; i < traj.traj.n_meas(); i++)
+    for (unsigned int i = 0; i < traj.traj.size(); i++)
     {
       glVertex3fv((traj.traj[i].position + offset).getArray());
     }
@@ -524,7 +574,7 @@ void Visualizer_GLUT::VisualizeTrajectory(const Trajectory& traj, bool drawPoint
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glDisable(GL_CULL_FACE);
     glBegin(GL_QUADS);
-    for (unsigned int i = 1; i < traj.traj.n_meas(); i++)
+    for (unsigned int i = 1; i < traj.traj.size(); i++)
     {
       V3F p = (traj.traj[i].position + offset);
       V3F l = traj.traj[i].attitude.Rotate_BtoI(V3F(0, 1, 0)) * 0.1f;
@@ -542,7 +592,7 @@ void Visualizer_GLUT::VisualizeTrajectory(const Trajectory& traj, bool drawPoint
 
     glColor4d(color[0], color[1], color[2], .1f);
     glBegin(GL_QUADS);
-    for (unsigned int i = 1; i < traj.traj.n_meas(); i++)
+    for (unsigned int i = 1; i < traj.traj.size(); i++)
     {
       V3F p = (traj.traj[i].position + offset);
       V3F l = traj.traj[i].attitude.Rotate_BtoI(V3F(0, 1, 0)) * 0.1f;
@@ -560,7 +610,7 @@ void Visualizer_GLUT::VisualizeTrajectory(const Trajectory& traj, bool drawPoint
   if (drawPoints)
   {
     // Draw the desired trajectory points as spheres
-    for (unsigned int i = 0; i < traj.traj.n_meas(); i++)
+    for (unsigned int i = 0; i < traj.traj.size(); i++)
     {
       V3F pos = traj.traj[i].position + offset;
       float r = 0.01f;
@@ -736,7 +786,14 @@ GLuint Visualizer_GLUT::MakeVolumeCallList()
 
 void Visualizer_GLUT::InitializeMenu(const vector<string>& strings)
 {
-  vector<string> tmp = strings;
+	ParamsHandle paramSys = SimpleConfig::GetInstance();
+
+	vector<string> tmp;
+	
+	if (!paramSys->Exists("_DEBUG.NO_QUAD_GRAPHS"))
+	{
+		tmp = strings;
+	}
   tmp.push_back("Toggle.RefTrajectory");
   tmp.push_back("Toggle.ActualTrajectory");
   tmp.push_back("Toggle.Thrusts");
@@ -768,6 +825,7 @@ void Visualizer_GLUT::InitializeMenu(const vector<string>& strings)
 
 void Visualizer_GLUT::OnMenu(string cmd)
 {
+  vector<string> s = SimpleFunctionParser(cmd);
   if (cmd == "Toggle.RefTrajectory")
   {
     showRefTrajectory = !showRefTrajectory;
@@ -785,9 +843,27 @@ void Visualizer_GLUT::OnMenu(string cmd)
     string name = string("../config/")+cmd.substr(9)+".txt";
     _delayedScenarioLoader = name;
   }
+  else if (s.size() == 3 && s[0] == "PrintParam")
+  {
+    ParamsHandle config = SimpleConfig::GetInstance();
+
+    if (s[1] == "V3F")
+    {
+      V3F p;
+      if (!config->GetV3F(s[2], p))
+      {
+        printf("Command [%s] error: parameter get failed\n", cmd.c_str());
+      }
+      else
+      {
+        printf("V3F %s = %lf %lf %lf\n", s[2].c_str(), p.x, p.y, p.z);
+      }
+    }
+
+  }
   else
   {
-    graph->AddGraph(cmd);
+    graph->GraphCommand(cmd);
   }
 }
 

@@ -9,6 +9,7 @@
 #include "Utility/StringUtils.h"
 #include "Drawing/GraphManager.h"
 #include "MavlinkNode/MavlinkTranslation.h"
+#include "Simulation/SimulatedGPS.h"
 
 using SLR::Quaternion;
 using SLR::ToUpper;
@@ -37,7 +38,7 @@ int randomNumCarry=-1;
 void OnTimer(int v);
 
 vector<QuadcopterHandle> CreateVehicles();
-string _scenarioFile="../config/1_Intro.txt";
+string _scenarioFile="../config/01_Intro.txt";
 
 #include "MavlinkNode/MavlinkNode.h"
 shared_ptr<MavlinkNode> mlNode;
@@ -85,16 +86,15 @@ void LoadScenario(string scenarioFile)
   _scenarioFile = scenarioFile;
   config->Reset(scenarioFile);
 
-  grapher->_sources.clear();
   grapher->graph1->RemoveAllElements();
   grapher->graph2->RemoveAllElements();
-
-  grapher->RegisterDataSource(visualizer);
 
   // create a quadcopter to simulate
   quads = CreateVehicles();
 
-  visualizer->Reset();
+  ResetSimulation();
+
+  visualizer->OnLoadScenario(_scenarioFile);
   visualizer->InitializeMenu(grapher->GetGraphableStrings());
   visualizer->quads = quads;
   visualizer->graph = grapher;
@@ -107,7 +107,7 @@ void LoadScenario(string scenarioFile)
     mlNode.reset(new MavlinkNode());
   }
 
-  ResetSimulation();
+  
 }
 
 int _simCount = 0;
@@ -125,12 +125,23 @@ void ResetSimulation()
   simulationTime = 0;
   config->Reset(_scenarioFile);
   dtSim = config->Get("Sim.Timestep", 0.005f);
-  
-  for (unsigned i = 0; i<quads.size(); i++)
+
+  for (unsigned i = 0; i < quads.size(); i++)
   {
     quads[i]->Reset();
   }
   grapher->Clear();
+
+  // reset data sources
+  grapher->_sources.clear();
+  grapher->RegisterDataSource(visualizer);
+  for (auto i = quads.begin(); i != quads.end(); i++)
+  {
+    grapher->RegisterDataSource(*i);
+    grapher->RegisterDataSources((*i)->sensors);
+    grapher->RegisterDataSource((*i)->estimator);
+		grapher->RegisterDataSource((*i)->controller);
+  }
 }
 
 void OnTimer(int)
@@ -169,7 +180,7 @@ void OnTimer(int)
     {
       visualizer->SetArrow(quads[0]->Position() - force, quads[0]->Position());
     }
-    visualizer->Update();
+    visualizer->Update(simulationTime);
     grapher->DrawUpdate();
     lastDraw.Reset();
 
@@ -200,7 +211,6 @@ vector<QuadcopterHandle> CreateVehicles()
     if (config->Exists(buf))
     {
       QuadcopterHandle q = QuadDynamics::Create(config->Get(buf, "Quad"), (int)ret.size());
-      grapher->RegisterDataSource(q);
       ret.push_back(q);
     }
     else
