@@ -6,7 +6,6 @@
 |----------|---------|
 | **[TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)** | Complete system design, algorithms, implementation, and experimental results |
 | **[VALIDATION.md](VALIDATION.md)** | Model validation, credibility assessment, and limitations analysis |
-| **[DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md)** | How to use these docs in interviews and job applications |
 
 ---
 
@@ -76,12 +75,21 @@ Once again, you will be building up your estimator in pieces.  At each step, the
 
 Project outline:
 
- - [Step 1: Sensor Noise](#step-1-sensor-noise)
- - [Step 2: Attitude Estimation](#step-2-attitude-estimation)
- - [Step 3: Prediction Step](#step-3-prediction-step)
- - [Step 4: Magnetometer Update](#step-4-magnetometer-update)
- - [Step 5: Closed Loop + GPS Update](#step-5-closed-loop--gps-update)
- - [Step 6: Adding Your Controller](#step-6-adding-your-controller)
+- [Estimation Project](#estimation-project)
+  - [Documentation](#documentation)
+  - [Setup](#setup)
+    - [Project Structure](#project-structure)
+      - [`config` Directory](#config-directory)
+  - [The Tasks](#the-tasks)
+    - [Step 1: Sensor Noise](#step-1-sensor-noise)
+    - [Step 2: Attitude Estimation](#step-2-attitude-estimation)
+    - [Step 3: Prediction Step](#step-3-prediction-step)
+    - [Step 4: Magnetometer Update](#step-4-magnetometer-update)
+    - [Step 5: Closed Loop + GPS Update](#step-5-closed-loop--gps-update)
+    - [Step 6: Adding Your Controller](#step-6-adding-your-controller)
+  - [Tips and Tricks](#tips-and-tricks)
+  - [Submission](#submission)
+  - [Authors](#authors)
 
 
 
