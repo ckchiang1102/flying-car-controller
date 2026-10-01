@@ -1,6 +1,16 @@
 # Estimation Project #
 
-Welcome to the estimation project.  In this project, you will be developing the estimation portion of the controller used in the CPP simulator.  By the end of the project, your simulated quad will be flying with your estimator and your custom controller (from the previous project)!
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| **[TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)** | Complete system design, algorithms, implementation, and experimental results |
+| **[VALIDATION.md](VALIDATION.md)** | Model validation, credibility assessment, and limitations analysis |
+| **[DOCUMENTATION_GUIDE.md](DOCUMENTATION_GUIDE.md)** | How to use these docs in interviews and job applications |
+
+---
+
+Welcome to the estimation project. In this project, you will be developing the estimation portion of the controller used in the CPP simulator. By the end of the project, your simulated quad will be flying with your estimator and your custom controller (from the previous project)!
 
 This README is broken down into the following sections:
 
