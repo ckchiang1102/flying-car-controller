@@ -1,13 +1,37 @@
-# Estimation Project #
+# Quadrotor State Estimation (EKF) and Cascaded Control
+
+C++ implementation of an Extended Kalman Filter for quadrotor state estimation,
+flown closed-loop with a cascaded controller in the Udacity FCND simulator.
+
+## What I implemented
+
+- `src/QuadEstimatorEKF.cpp` — quaternion-based attitude integration,
+  state prediction, covariance propagation (`GetRbgPrime`), magnetometer
+  and GPS measurement updates
+- `src/QuadControl.cpp` — cascaded controller (body rate, roll/pitch,
+  altitude, lateral position, yaw) and motor mixing
+- `config/QuadEstimatorEKF.txt`, `config/QuadControlParams.txt` — tuning
+
+The simulator, scenario definitions, sensor models, and visualisation are
+Udacity course material.
+
+## Result
+
+Closed-loop GPS-aided flight with estimated state feedback: final position
+error 0.73 m over a 15 s takeoff, trajectory and landing sequence.
+Covariance coverage 65% against a 68% Gaussian target.
 
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| **[TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)** | Complete system design, algorithms, implementation, and experimental results |
-| **[VALIDATION.md](VALIDATION.md)** | Model validation, credibility assessment, and limitations analysis |
+| **[TECHNICAL_REPORT.md](TECHNICAL_REPORT.md)** | System design, algorithms, implementation, and results |
+| **[VALIDATION.md](VALIDATION.md)** | Validation methodology, credibility assessment, and limitations |
 
 ---
+
+*The sections below are the original Udacity project instructions, kept for reference.*
+
 
 Welcome to the estimation project. In this project, you will be developing the estimation portion of the controller used in the CPP simulator. By the end of the project, your simulated quad will be flying with your estimator and your custom controller (from the previous project)!
 
@@ -75,7 +99,9 @@ Once again, you will be building up your estimator in pieces.  At each step, the
 
 Project outline:
 
-- [Estimation Project](#estimation-project)
+- [Quadrotor State Estimation (EKF) and Cascaded Control](#quadrotor-state-estimation-ekf-and-cascaded-control)
+  - [What I implemented](#what-i-implemented)
+  - [Result](#result)
   - [Documentation](#documentation)
   - [Setup](#setup)
     - [Project Structure](#project-structure)
